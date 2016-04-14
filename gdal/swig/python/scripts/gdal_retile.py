@@ -168,6 +168,8 @@ class mosaic_info:
         for iband in range(self.bands):
             self.ci[iband] = fhInputTile.GetRasterBand(iband + 1).GetRasterColorInterpretation()
 
+        self.nodata = fhInputTile.GetRasterBand(1).GetNoDataValue()
+
         extent = self.ogrTileIndexDS.GetLayer().GetExtent()
         self.ulx = extent[0];
         self.uly = extent[3]
@@ -219,6 +221,11 @@ class mosaic_info:
         resultDS = self.TempDriver.Create( "TEMP", resultSizeX, resultSizeY, self.bands,self.band_type,[])
         resultDS.SetGeoTransform( [minx,self.scaleX,0,maxy,0,self.scaleY] )
 
+        for bandNr in range(1,self.bands+1):
+            t_band = resultDS.GetRasterBand( bandNr )
+            if self.nodata is not None:
+                t_band.Fill(self.nodata)
+                t_band.SetNoDataValue(self.nodata)
 
         for feature in features:
             featureName =  feature.GetField(0)
@@ -479,6 +486,12 @@ def createPyramidTile(levelMosaicInfo, offsetX, offsetY, width, height,tileName,
             t_band.SetRasterColorTable(levelMosaicInfo.ct)
         t_band.SetRasterColorInterpretation(levelMosaicInfo.ci[band-1])
 
+    if levelMosaicInfo.nodata is not None:
+        for band in range(1,bands+1):
+            t_band = t_fh.GetRasterBand( band )
+            t_band.Fill(self.nodata)
+            t_band.SetNoDataValue(levelMosaicInfo.nodata)
+
     res = gdal.ReprojectImage(s_fh,t_fh,None,None,ResamplingMethod)
     if  res!=0:
         print("Reprojection failed for %s, error %d" % (tileName,res))
@@ -553,6 +566,9 @@ def createTile( minfo, offsetX,offsetY,width,height, tilename,OGRDS):
         t_band = t_fh.GetRasterBand( band )
         if minfo.ct is not None:
             t_band.SetRasterColorTable(minfo.ct)
+        if minfo.nodata is not None:
+            t_band.Fill(minfo.nodata)
+            t_band.SetNoDataValue(minfo.nodata)
 
 #        data = s_band.ReadRaster( offsetX,offsetY,width,height,width,height, t_band.DataType )
         data = s_band.ReadRaster( 0,0,readX,readY,readX,readY,  t_band.DataType )
